@@ -24,3 +24,16 @@ services:
      - ASPNETCORE_URLS=http://+:8080
    ports:
      - "5100:8080"
+ catalogservice:
+   environment:
+     - ASPNETCORE_ENVIRONMENT=Docker
+     - ASPNETCORE_URLS=http://+:8080
+     - ConnectionStrings__CatalogConnection=Server=sqlserver,1433;Database=eShop.CatalogServiceDb;User Id=catalog_svc;Password=${CATALOG_DB_PASSWORD:-Catalog-Dev-1234};TrustServerCertificate=true;Encrypt=false
+     - Jwt__Key=${JWT_KEY:-SecretKeyOfDoomThatMustBeAMinimumNumberOfBytes}
+     - CatalogBaseUrl=
+ sql-init:
+   environment:
+     - SA_PASSWORD=${SQL_SA_PASSWORD:-@someThingComplicated1234}
+     - CATALOG_DB_NAME=eShop.CatalogServiceDb
+     - CATALOG_DB_USER=catalog_svc
+     - CATALOG_DB_PASSWORD=${CATALOG_DB_PASSWORD:-Catalog-Dev-1234}

@@ -23,11 +23,28 @@ services:
     depends_on:
       - "eshopwebmvc"
       - "eshoppublicapi"
+      - "catalogservice"
+  catalogservice:
+    image: ${DOCKER_REGISTRY-}catalogservice
+    build:
+      context: .
+      dockerfile: src/CatalogService/Dockerfile
+    depends_on:
+      sql-init:
+        condition: service_completed_successfully
+  sql-init:
+    image: ${DOCKER_REGISTRY-}sql-init
+    build:
+      context: .
+      dockerfile: src/SqlInit/Dockerfile
+    depends_on:
+      - "sqlserver"
+    restart: "no"
   sqlserver:
     image: mcr.microsoft.com/azure-sql-edge
     ports:
       - "1433:1433"
     environment:
-      - SA_PASSWORD=@someThingComplicated1234
+      - SA_PASSWORD=${SQL_SA_PASSWORD:-@someThingComplicated1234}
       - ACCEPT_EULA=Y
 
