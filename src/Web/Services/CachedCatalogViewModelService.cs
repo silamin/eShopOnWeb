@@ -23,7 +23,8 @@ public class CachedCatalogViewModelService : ICatalogViewModelService
     {
         return (await _cache.GetOrCreateAsync(CacheHelpers.GenerateBrandsCacheKey(), async entry =>
                 {
-                    entry.SlidingExpiration = CacheHelpers.DefaultCacheDuration;
+                    // Absolute, not sliding: under steady traffic a sliding entry never expires and catalog changes would never show.
+            entry.AbsoluteExpirationRelativeToNow = CacheHelpers.DefaultCacheDuration;
                     return await _catalogViewModelService.GetBrands();
                 })) ?? new List<SelectListItem>();
     }
@@ -34,7 +35,8 @@ public class CachedCatalogViewModelService : ICatalogViewModelService
 
         return (await _cache.GetOrCreateAsync(cacheKey, async entry =>
         {
-            entry.SlidingExpiration = CacheHelpers.DefaultCacheDuration;
+            // Absolute, not sliding: under steady traffic a sliding entry never expires and catalog changes would never show.
+            entry.AbsoluteExpirationRelativeToNow = CacheHelpers.DefaultCacheDuration;
             return await _catalogViewModelService.GetCatalogItems(pageIndex, itemsPage, brandId, typeId);
         })) ?? new CatalogIndexViewModel();
     }
@@ -43,7 +45,8 @@ public class CachedCatalogViewModelService : ICatalogViewModelService
     {
         return (await _cache.GetOrCreateAsync(CacheHelpers.GenerateTypesCacheKey(), async entry =>
         {
-            entry.SlidingExpiration = CacheHelpers.DefaultCacheDuration;
+            // Absolute, not sliding: under steady traffic a sliding entry never expires and catalog changes would never show.
+            entry.AbsoluteExpirationRelativeToNow = CacheHelpers.DefaultCacheDuration;
             return await _catalogViewModelService.GetTypes();
         })) ?? new List<SelectListItem>();
     }
