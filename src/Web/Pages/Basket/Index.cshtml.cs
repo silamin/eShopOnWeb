@@ -1,7 +1,6 @@
 ﻿using Ardalis.GuardClauses;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Web.Interfaces;
 using Microsoft.eShopWeb.Web.ViewModels;
@@ -12,15 +11,15 @@ public class IndexModel : PageModel
 {
     private readonly IBasketService _basketService;
     private readonly IBasketViewModelService _basketViewModelService;
-    private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly ICatalogClient _catalog;
 
     public IndexModel(IBasketService basketService,
         IBasketViewModelService basketViewModelService,
-        IRepository<CatalogItem> itemRepository)
+        ICatalogClient catalog)
     {
         _basketService = basketService;
         _basketViewModelService = basketViewModelService;
-        _itemRepository = itemRepository;
+        _catalog = catalog;
     }
 
     public BasketViewModel BasketModel { get; set; } = new BasketViewModel();
@@ -37,7 +36,9 @@ public class IndexModel : PageModel
             return RedirectToPage("/Index");
         }
 
-        var item = await _itemRepository.GetByIdAsync(productDetails.Id);
+        // Price comes from the Catalog service at add-to-basket and is snapshotted in BasketItem.UnitPrice.
+        // If the Catalog service is down this throws CatalogUnavailableException before the basket is touched.
+        var item = await _catalog.GetItemAsync(productDetails.Id);
         if (item == null)
         {
             return RedirectToPage("/Index");

@@ -1,5 +1,4 @@
-﻿using Microsoft.eShopWeb.ApplicationCore.Entities;
-using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
+﻿using Microsoft.eShopWeb.ApplicationCore.Entities.BasketAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
 using Microsoft.eShopWeb.Web.Interfaces;
@@ -10,19 +9,16 @@ namespace Microsoft.eShopWeb.Web.Services;
 public class BasketViewModelService : IBasketViewModelService
 {
     private readonly IRepository<Basket> _basketRepository;
-    private readonly IUriComposer _uriComposer;
     private readonly IBasketQueryService _basketQueryService;
-    private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly ICatalogClient _catalog;
 
     public BasketViewModelService(IRepository<Basket> basketRepository,
-        IRepository<CatalogItem> itemRepository,
-        IUriComposer uriComposer,
+        ICatalogClient catalog,
         IBasketQueryService basketQueryService)
     {
         _basketRepository = basketRepository;
-        _uriComposer = uriComposer;
         _basketQueryService = basketQueryService;
-        _itemRepository = itemRepository;
+        _catalog = catalog;
     }
 
     public async Task<BasketViewModel> GetOrCreateBasketForUser(string userName)
@@ -52,8 +48,8 @@ public class BasketViewModelService : IBasketViewModelService
 
     private async Task<List<BasketItemViewModel>> GetBasketItems(IReadOnlyCollection<BasketItem> basketItems)
     {
-        var catalogItemsSpecification = new CatalogItemsSpecification(basketItems.Select(b => b.CatalogItemId).ToArray());
-        var catalogItems = await _itemRepository.ListAsync(catalogItemsSpecification);
+        // One batched call for the whole basket.
+        var catalogItems = await _catalog.GetItemsByIdsAsync(basketItems.Select(b => b.CatalogItemId));
 
         var items = basketItems.Select(basketItem =>
         {
@@ -65,7 +61,7 @@ public class BasketViewModelService : IBasketViewModelService
                 UnitPrice = basketItem.UnitPrice,
                 Quantity = basketItem.Quantity,
                 CatalogItemId = basketItem.CatalogItemId,
-                PictureUrl = _uriComposer.ComposePicUri(catalogItem.PictureUri),
+                PictureUrl = catalogItem.PictureUri,
                 ProductName = catalogItem.Name
             };
             return basketItemViewModel;

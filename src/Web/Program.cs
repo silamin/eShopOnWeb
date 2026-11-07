@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb;
+using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
@@ -180,6 +181,28 @@ else
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
+
+// The Catalog service is down or too slow: fail fast with a clear message. Nothing has been written
+// at this point (the catalog is read before the basket is touched), so the basket stays as it was.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (CatalogUnavailableException ex) when (!context.Response.HasStarted)
+    {
+        app.Logger.LogWarning(ex, "Catalog unavailable on {Path}", context.Request.Path);
+        context.Response.Clear();
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.WriteAsync(
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Catalog unavailable</title></head>" +
+            "<body style=\"font-family:sans-serif;margin:3rem\"><h2>The catalog is unavailable right now.</h2>" +
+            "<p>Please try again in a moment. Your basket has not been changed.</p>" +
+            "<p><a href=\"/\">Back to the shop</a></p></body></html>");
+    }
+});
 
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();

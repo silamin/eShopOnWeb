@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Data;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Web.Interfaces;
@@ -32,6 +33,13 @@ public class TestApplication : WebApplicationFactory<IBasketViewModelService>
             {
                 services.Remove(descriptor);
             }
+
+            // The Catalog service is not running in these tests: replace the HTTP client with a fake.
+            foreach (var d in services.Where(d => d.ServiceType == typeof(ICatalogClient)).ToList())
+            {
+                services.Remove(d);
+            }
+            services.AddSingleton<ICatalogClient, FakeCatalogClient>();
 
             services.AddScoped(sp =>
             {

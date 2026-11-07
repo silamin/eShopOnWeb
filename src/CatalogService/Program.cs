@@ -82,7 +82,7 @@ app.MapGet("/api/catalog-items", async (int? pageSize, int? pageIndex, int? cata
         ? await page.Skip(index * size).Take(size).ToListAsync()
         : await page.ToListAsync();   // pageSize 0 = all, as in the Public API
     var pageCount = size > 0 ? (int)Math.Ceiling((decimal)total / size) : (total > 0 ? 1 : 0);
-    return Results.Ok(new { catalogItems = items.Select(ToDto), pageCount });
+    return Results.Ok(new { catalogItems = items.Select(ToDto), pageCount, totalItems = total });
 });
 
 // Batch lookup for the single read-only seam (ICatalogClient): one call for a whole basket/order.
