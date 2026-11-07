@@ -18,3 +18,9 @@ services:
    volumes:
      - ~/.aspnet/https:/root/.aspnet/https:ro
      - ~/.microsoft/usersecrets:/root/.microsoft/usersecrets:ro
+ gateway:
+   environment:
+     - ASPNETCORE_ENVIRONMENT=Docker
+     - ASPNETCORE_URLS=http://+:8080
+   ports:
+     - "5100:8080"

@@ -14,21 +14,24 @@ docker compose up
 
 | What | URL |
 | --- | --- |
-| Web (MVC shop) | http://localhost:5106 |
-| Public API (Swagger) | http://localhost:5200/swagger |
+| Gateway (YARP), the entry point from Phase 0 | http://localhost:5100 (health: http://localhost:5100/gateway/health) |
+| Web (MVC shop), direct | http://localhost:5106 |
+| Public API (Swagger), direct | http://localhost:5200/swagger |
 | SQL Server (azure-sql-edge) | localhost:1433 |
 
 Verified Sat 7 Nov 2026 on Docker Desktop 4.88.1:
 - `localhost:5106` shows the catalog ("Showing 10 of 12 products", 2 pages).
 - `localhost:5200/swagger` loads "My API v1" with the Auth, CatalogBrand, CatalogItem and CatalogType endpoints.
+- Phase 0, verified Sat 7 Nov 2026 in Chrome through the gateway: `localhost:5100/gateway/health` returns `{"status":"ok"}`; the catalog shows (10 of 12); add-to-basket works; login as the seeded admin works; `localhost:5100/admin` lists all 12 products and its API calls go to `http://localhost:5100/api/catalog-items`, `-brands` and `-types`.
+- Right after `docker compose up` the gateway can answer 502 for a while: the web waits for SQL Edge to start (up to 30 s) before it launches.
 - On first start the log can show seeding errors. Web and API both try to `CREATE DATABASE` at the same time; one of them wins (here the API seeded it) and the shop works. This is a startup race in the unmodified monolith, not something added here.
 
 ## Krav checklist (from Semesteropgave.pdf)
 
 - [ ] 1. Services: split the monolith into microservices
-- [ ] 2. Strangler pattern
+- [ ] 2. Strangler pattern (partly: Phase 0 done, the gateway sits in front of the monolith and every page works through it; no route moved to a service yet)
 - [ ] 3. Lagerstyring (inventory)
-- [ ] 4. API gateway
+- [ ] 4. API gateway (partly: YARP routing in place; JWT check, rate limiting and load balancing across two instances still to do)
 - [ ] 5. Asynchronous communication
 - [ ] 6. Own database per service
 - [ ] 7. Fault handling and monitoring
@@ -97,7 +100,7 @@ The gateway validates JWTs on `/api/*` only; page routes keep the monolith's coo
 - **Catalog down at add-to-basket.** When the circuit breaker on the Catalog call is open, add-to-basket fails fast with a clear "catalog unavailable, try again" message, and the basket stays as it was. Rejected: falling back to the monolith's own catalog tables. From Tue 10 `catalog-db` takes the writes, so the old tables go stale, and a silent fallback would put items in the basket at old prices.
 - **No stock on the catalog page.** Stock is enforced only at checkout: Inventory reserves the items, or rejects with `StockRejected` and the order saga cancels the order. The catalog page shows no "in stock / sold out". No krav asks for it (krav 3 is reservation at checkout), and showing stock would couple Catalog to Inventory, either through a synchronous call or a replicated stock copy. Out of scope for the available hours.
 - **Authentication.** The gateway validates JWTs on `/api/*` only. MVC page routes pass through untouched and keep the monolith's cookie login. Identity stays in the monolith and issues the tokens (the existing Public API `AuthenticateEndpoint`). The Catalog service also validates the forwarded JWT itself (same signing key, `AddJwtBearer`), and its port is not published outside the compose network. Gateway check + service check + no published port is defense in depth. Reads stay open and are rate-limited at the gateway.
-- **Signing key.** The JWT signing key must come from configuration in every component that signs or validates, or moving only the validators fixes nothing. The issuer (`IdentityTokenClaimService`, in the monolith) and the validators (`PublicApi/Program.cs`, the gateway, the Catalog service) all read one key from the environment. It is set in a gitignored `.env` with a new random value, because the inherited `AuthorizationConstants.JWT_SECRET_KEY` is public in the repo. The constant stays only as an explicit development default that this README calls out, or is removed. Done with the Catalog service (Tue 10).
+- **Signing key.** The JWT signing key must come from configuration in every component that signs or validates, or moving only the validators fixes nothing. The issuer (`IdentityTokenClaimService`, in the monolith) and the validators (`PublicApi/Program.cs`, the gateway, the Catalog service) all read one key from the environment. It is set in a gitignored `.env` with a new random value, because the inherited `AuthorizationConstants.JWT_SECRET_KEY` is public in the repo. The constant stays only as an explicit development default that this README calls out, or is removed. The SQL `sa` password moves the same way: it is a new value in the same gitignored `.env`, `docker-compose.yml` passes it as `SA_PASSWORD=${SQL_SA_PASSWORD}` to SQL Edge and as `ConnectionStrings__CatalogConnection` / `ConnectionStrings__IdentityConnection` to Web and PublicApi, so the inherited `appsettings.Docker.json` files no longer carry it. Done with the Catalog service (Tue 10).
 - **Ordering owns the order, not the user.** `BuyerId` stays a plain string and `ShipToAddress` is a snapshot owned by the order, taken at order time. No user data is copied into ordering-db; Identity stays the only owner of user data.
 - **Inventory is idempotent by order id.** Inventory keeps a reservations table with `OrderId` as primary key. Reserving the stock and inserting the reservation row run in one database transaction, so two concurrent deliveries of the same message cannot both pass the check; on a duplicate-key error the stored outcome is re-published (see the re-publish entry below). The row carries a status (`Reserved` / `Rejected` / `Released`), so the saga's compensation is idempotent too: a repeated `OrderCancelled` does not release the stock twice, and only a `Reserved` row is ever released. The RabbitMQ message is acknowledged manually, after the database commit and the confirmed publish (see the re-publish entry below), so a crash in between causes a redelivery and not a lost message.
 - **Duplicate delivery re-publishes the stored outcome.** When Inventory receives an order it has already handled (duplicate key on `OrderId`), it does not just ignore the message: it reads the stored status and publishes the matching event again (`StockReserved` or `StockRejected`; a repeated `OrderCancelled` changes nothing). `Rejected` is stored as a status as well, so a redelivery repeats the same `StockRejected` and does not re-check stock that may have changed. Consumers of these events (Ordering) are idempotent in the same way. The sequence is commit, then publish, then ack, with RabbitMQ publisher confirms on the outgoing event: the incoming message is acknowledged only after the broker has confirmed the event.

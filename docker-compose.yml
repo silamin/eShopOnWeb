@@ -15,6 +15,14 @@ services:
       dockerfile: src/PublicApi/Dockerfile
     depends_on:
       - "sqlserver"
+  gateway:
+    image: ${DOCKER_REGISTRY-}gateway
+    build:
+      context: .
+      dockerfile: src/Gateway/Dockerfile
+    depends_on:
+      - "eshopwebmvc"
+      - "eshoppublicapi"
   sqlserver:
     image: mcr.microsoft.com/azure-sql-edge
     ports:
