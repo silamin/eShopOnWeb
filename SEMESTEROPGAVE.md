@@ -18,17 +18,18 @@ docker compose up
 | What | URL |
 | --- | --- |
 | Gateway (YARP), the entry point from Phase 0 | http://localhost:5100 (health: http://localhost:5100/gateway/health) |
-| Web (MVC shop), direct | http://localhost:5106 |
-| Public API (Swagger), direct | http://localhost:5200/swagger |
+| Web (MVC shop) and the Blazor admin | through the gateway only: http://localhost:5100 and http://localhost:5100/admin. The web's own port 5106 is not published |
+| Public API (Swagger) | through the gateway: http://localhost:5100/swagger (route `publicapi-swagger`). The API's own port 5200 is not published |
 | SQL Server (azure-sql-edge) | localhost:1433 |
 | RabbitMQ management UI | http://localhost:15672, bound to 127.0.0.1 only; log in with `RABBITMQ_USER` / `RABBITMQ_PASSWORD` from `.env`; vhost `eshop`. The AMQP port 5672 is not published |
 | Catalog service | not published; reached only through the gateway (`/api/catalog-items`, `/api/catalog-brands`, `/api/catalog-types`) |
 | sql-init (one-shot) | runs at start, creates each service's database and login, then exits |
 
 Verified Sat 7 Nov 2026 on Docker Desktop 4.88.1:
-- `localhost:5106` shows the catalog ("Showing 10 of 12 products", 2 pages).
-- `localhost:5200/swagger` loads "My API v1" with the Auth, CatalogBrand, CatalogItem and CatalogType endpoints.
+- Before the ports were unpublished (Sun 8): `localhost:5106` shows the catalog ("Showing 10 of 12 products", 2 pages).
+- Before the ports were unpublished (Sun 8): `localhost:5200/swagger` loads "My API v1" with the Auth, CatalogBrand, CatalogItem and CatalogType endpoints.
 - Phase 0, verified Sat 7 Nov 2026 in Chrome through the gateway: `localhost:5100/gateway/health` returns `{"status":"ok"}`; the catalog shows (10 of 12); add-to-basket works; login as the seeded admin works; `localhost:5100/admin` lists all 12 products and its API calls go to `http://localhost:5100/api/catalog-items`, `-brands` and `-types`.
+- Sun 8 Nov 2026 (docker compose on a Linux container host, headless Chrome): with 5106 and 5200 not published, `localhost:5106` and `localhost:5200` refuse the connection; logged in as the seeded admin, `localhost:5100/admin` lists all 12 products, and every request the page makes goes to `localhost:5100` (`/api/catalog-items`, `-brands`, `-types`), none fails; `localhost:5100/swagger` loads the Public API's Swagger UI. The Blazor admin's `webBase` (and the web's and the API's `webBase`/`apiBase`) point at the gateway; the API's CORS origin is derived from `webBase`.
 - Right after `docker compose up` the gateway can answer 502 for a while: the web waits for SQL Edge to start (up to 30 s) before it launches.
 - On first start the log can show seeding errors. Web and API both try to `CREATE DATABASE` at the same time; one of them wins (here the API seeded it) and the shop works. This is a startup race in the unmodified monolith, not something added here.
 
