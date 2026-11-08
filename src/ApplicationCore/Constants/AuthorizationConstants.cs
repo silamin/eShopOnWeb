@@ -7,6 +7,6 @@ public class AuthorizationConstants
     // TODO: Don't use this in production
     public const string DEFAULT_PASSWORD = "Pass@word1";
 
-    // TODO: Change this to an environment variable
-    public const string JWT_SECRET_KEY = "SecretKeyOfDoomThatMustBeAMinimumNumberOfBytes";
+    // The JWT signing key is not a constant: every component that signs or validates tokens reads it from
+    // configuration (Jwt:Key, set from JWT_KEY in .env).
 }

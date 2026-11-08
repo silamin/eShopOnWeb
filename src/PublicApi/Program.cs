@@ -51,7 +51,9 @@ var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
 builder.Services.AddMemoryCache();
 
-var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("Jwt:Key is not configured (JWT_KEY in .env).");
+var key = Encoding.ASCII.GetBytes(jwtKey);
 builder.Services.AddAuthentication(config =>
 {
     config.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;

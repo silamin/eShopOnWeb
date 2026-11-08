@@ -20,6 +20,8 @@ public class ProgramTest
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext _)
     {
+        // The API reads its JWT signing key from configuration; give it the key the test tokens are signed with.
+        System.Environment.SetEnvironmentVariable("Jwt__Key", ApiTokenHelper.TestJwtKey);
         _application = new WebApplicationFactory<Program>();
 
     }

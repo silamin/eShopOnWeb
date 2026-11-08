@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using System;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb.Infrastructure.Data;
@@ -15,6 +16,8 @@ public class TestApiApplication : WebApplicationFactory<AuthenticateEndpoint>
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
+        // The API reads its JWT signing key from configuration; give it the key the test tokens are signed with.
+        Environment.SetEnvironmentVariable("Jwt__Key", Microsoft.eShopWeb.FunctionalTests.Web.Api.ApiTokenHelper.TestJwtKey);
         builder.UseEnvironment(_environment);
 
         // Add mock/test services to the builder here

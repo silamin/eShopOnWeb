@@ -1,5 +1,4 @@
-﻿using Microsoft.eShopWeb.ApplicationCore.Constants;
-using Microsoft.IdentityModel.Tokens;
+﻿using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
@@ -10,6 +9,9 @@ namespace PublicApiIntegrationTests
 {
     public class ApiTokenHelper
     {
+    // Test-only signing key. The API reads its key from configuration (Jwt:Key); the tests set it to this value.
+        public const string TestJwtKey = "test-only-signing-key-not-used-anywhere-else-0123456789";
+
         public static string GetAdminUserToken()
         {
             string userName = "admin@microsoft.com";
@@ -35,7 +37,7 @@ namespace PublicApiIntegrationTests
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var key = Encoding.ASCII.GetBytes(AuthorizationConstants.JWT_SECRET_KEY);
+            var key = Encoding.ASCII.GetBytes(TestJwtKey);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims.ToArray()),
