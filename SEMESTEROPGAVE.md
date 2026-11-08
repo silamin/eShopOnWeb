@@ -8,9 +8,12 @@ This is a fork of Microsoft's eShopOnWeb (ASP.NET Core 8). Base commit: `4da8212
 Needs Docker Desktop. From the repo root (the folder with `eShopOnWeb.sln`):
 
 ```
+cp .env.example .env      # once; .env is not committed (Windows PowerShell: Copy-Item .env.example .env)
 docker compose build
 docker compose up
 ```
+
+`docker compose` stops with "copy .env.example to .env" if `.env` is missing: there are no default passwords in the compose files for the broker. The values in `.env.example` are placeholders that let a clean clone run; put your own random ones in `.env`.
 
 | What | URL |
 | --- | --- |
@@ -18,6 +21,7 @@ docker compose up
 | Web (MVC shop), direct | http://localhost:5106 |
 | Public API (Swagger), direct | http://localhost:5200/swagger |
 | SQL Server (azure-sql-edge) | localhost:1433 |
+| RabbitMQ management UI | http://localhost:15672, bound to 127.0.0.1 only; log in with `RABBITMQ_USER` / `RABBITMQ_PASSWORD` from `.env`; vhost `eshop`. The AMQP port 5672 is not published |
 | Catalog service | not published; reached only through the gateway (`/api/catalog-items`, `/api/catalog-brands`, `/api/catalog-types`) |
 | sql-init (one-shot) | runs at start, creates each service's database and login, then exits |
 
@@ -116,4 +120,5 @@ The gateway validates JWTs on `/api/*` only; page routes keep the monolith's coo
 - **ICatalogClient: plain 3 s timeout now, retry and breaker later.** The client throws `CatalogUnavailableException` on a timeout, a connection error or a 5xx; the monolith answers 503 with "The catalog is unavailable right now ... Your basket has not been changed". The catalog is read before the basket is touched, so a failed add-to-basket changes nothing. The Polly retry and circuit breaker are added to the client's registration (`ConfigureWebServices`) in the resilience step; the call sites do not change. Measured Sat 7 Nov with the Catalog service stopped: every failing request waits the full timeout, 3,02-3,05 s. With the breaker open it should answer at once; the after-number is measured in the resilience step and both go in the report.
 - **The list endpoint returns `totalItems`.** The catalog page needs the total of the filtered set ("Showing 10 of 12"), so the Catalog service's list response carries `totalItems` next to `pageCount`. It is an extra field; the Blazor admin ignores it.
 - **What was retired from the MVC admin.** The edit page `Pages/Admin/EditCatalogItem`, its partial `_editCatalog` and `CatalogItemViewModelService` are gone: they wrote into the monolith's catalog tables. `/admin` (the Blazor admin, `Pages/Admin/Index`) and the Admin link stay; it edits through the gateway into the Catalog service. Catalog changes show on the shop within 30 s: the monolith caches the catalog page, brands and types with an absolute 30 s expiry (not sliding: a sliding entry never expires under steady traffic, so a price change would never reach the shop).
+- **RabbitMQ: one topic exchange, queues bound by key pattern, nothing published except the UI on loopback.** Exchange `eshop.events` (topic, durable). A publisher chooses only a routing key (`catalog.item.created`, `basket.checked-out`, `payment.succeeded`, ...); each consumer owns a durable queue and binds it by pattern: `inventory.catalog-events` takes `catalog.item.*`, `ordering.basket-events` takes `basket.checked-out`, `ordering.payment-events` takes `payment.*`. So a payment event never reaches Inventory's queue, which a fan-out exchange could not guarantee. The contracts (`CatalogItemCreated`, `BasketCheckedOut`, `PaymentSucceeded`), the routing keys and the topology are one shared class library, `src/Messaging`, referenced by every service; `docker compose run --rm event-probe` publishes one event per key and checks that each arrives only in the queue bound for it. Broker hardening: the image creates only the user from `.env` (the default `guest` user does not exist; `guest`/`guest` answers 401), in its own vhost `eshop` (the default `/` vhost is not created), and that user has rights on `eshop` only. **Port decision:** AMQP (5672) is not published to the host; services reach the broker on the compose network. The management UI (15672) is published as `127.0.0.1:15672` only, so the bindings can be shown in a browser on the same machine and nowhere else. Not done: TLS on the broker (the UI is plain HTTP on loopback; AMQP is plain inside the compose network).
 - **Known leftover.** The monolith still creates and seeds its own catalog tables, and the Public API still has its own catalog endpoints. Nothing reads them: the gateway routes `/api/catalog-*` to the Catalog service and the monolith reads through `ICatalogClient`. They are removed in the cleanup step; the monolith's `CatalogDb` then holds only baskets.

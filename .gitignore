@@ -260,3 +260,7 @@ pub/
 .devcontainer
 
 .azure
+
+# Local secrets: copy .env.example to .env; .env must never be committed
+.env
+!.env.example

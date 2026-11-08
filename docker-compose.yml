@@ -48,4 +48,22 @@ services:
     environment:
       - SA_PASSWORD=${SQL_SA_PASSWORD:-@someThingComplicated1234}
       - ACCEPT_EULA=Y
-
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    hostname: rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+  event-probe:
+    # Messaging smoke test, not started by `up`:  docker compose run --rm event-probe
+    image: ${DOCKER_REGISTRY-}event-probe
+    build:
+      context: .
+      dockerfile: src/EventProbe/Dockerfile
+    profiles: ["probe"]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
