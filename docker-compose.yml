@@ -44,7 +44,7 @@ services:
   sqlserver:
     image: mcr.microsoft.com/azure-sql-edge
     ports:
-      - "1433:1433"
+      - "127.0.0.1:1433:1433"
     environment:
       - SA_PASSWORD=${SQL_SA_PASSWORD:?copy .env.example to .env}
       - ACCEPT_EULA=Y
