@@ -18,6 +18,9 @@ public class StockItem
     public bool IsAvailable { get; private set; } = true;
     public DateTimeOffset CreatedAt { get; private set; }
 
+    /// <summary>Optimistic concurrency: two instances reserving the same item cannot both win on stale data.</summary>
+    public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+
     private StockItem() { } // EF
 
     public static StockItem Create(int catalogItemId, string name, int startingQuantity, DateTimeOffset now)
@@ -60,6 +63,7 @@ public class InventoryDbContext : DbContext
     public InventoryDbContext(DbContextOptions<InventoryDbContext> options) : base(options) { }
 
     public DbSet<StockItem> StockItems => Set<StockItem>();
+    public DbSet<Reservation> Reservations => Set<Reservation>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -71,5 +75,18 @@ public class InventoryDbContext : DbContext
         s.Property(x => x.CatalogItemId).ValueGeneratedNever();
         s.Property(x => x.Name).HasMaxLength(50).IsRequired();
         s.ToTable(t => t.HasCheckConstraint("CK_StockItems_QuantityInStore", "[QuantityInStore] >= 0"));
+        s.Property(x => x.RowVersion).IsRowVersion();
+
+        var r = b.Entity<Reservation>();
+        r.ToTable("Reservations");
+        r.HasKey(x => x.OrderId);                       // one reservation per order: the idempotency key
+        r.Property(x => x.OrderId).ValueGeneratedNever();
+        r.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+        r.Property(x => x.Reason).HasMaxLength(300);
+        r.HasMany(x => x.Lines).WithOne().HasForeignKey(l => l.OrderId);
+
+        var l = b.Entity<ReservationLine>();
+        l.ToTable("ReservationLines");
+        l.HasKey(x => x.Id);
     }
 }

@@ -14,6 +14,10 @@ public static class RoutingKeys
     public const string CatalogItemCreated = "catalog.item.created";
     public const string BasketCheckedOut = "basket.checked-out";
     public const string PaymentSucceeded = "payment.succeeded";
+    public const string OrderCreated = "order.created";
+    public const string OrderCancelled = "order.cancelled";
+    public const string StockReserved = "stock.reserved";
+    public const string StockRejected = "stock.rejected";
 }
 
 /// <summary>One durable queue per consumer and concern. A queue only gets the keys it is bound for.</summary>
@@ -22,6 +26,8 @@ public static class Queues
     public const string InventoryCatalogEvents = "inventory.catalog-events";
     public const string OrderingBasketEvents = "ordering.basket-events";
     public const string OrderingPaymentEvents = "ordering.payment-events";
+    public const string InventoryOrderEvents = "inventory.order-events";
+    public const string OrderingStockEvents = "ordering.stock-events";
 }
 
 public static class Topology
@@ -32,6 +38,8 @@ public static class Topology
         (Queues.InventoryCatalogEvents, "catalog.item.*"),
         (Queues.OrderingBasketEvents, RoutingKeys.BasketCheckedOut),
         (Queues.OrderingPaymentEvents, "payment.*"),
+        (Queues.InventoryOrderEvents, "order.*"),
+        (Queues.OrderingStockEvents, "stock.*"),
     };
 
     /// <summary>Idempotent: declaring what already exists with the same arguments changes nothing.</summary>

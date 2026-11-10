@@ -5,14 +5,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 // Inventory Service (krav 3, lagerstyring), with its own database inventory-db (krav 6), fed by
-// events (krav 5): CatalogItemCreated creates a stock line. Reservation at checkout (OrderCreated)
-// and release on OrderCancelled are added with the Ordering service.
+// events (krav 5): CatalogItemCreated creates a stock line; OrderCreated reserves the order's stock
+// (StockReserved / StockRejected back to Ordering); OrderCancelled releases it (the saga's compensation).
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<InventoryDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("InventoryConnection")));
+builder.Services.AddScoped<ReservationHandler>();
+builder.Services.AddSingleton(_ => new Eshop.Messaging.EventPublisher(Eshop.Messaging.RabbitMqOptions.FromEnvironment()));
 builder.Services.AddHostedService<CatalogEventsConsumer>();
+builder.Services.AddHostedService<OrderEventsConsumer>();
 
 // Same JWT check as the Catalog service: the gateway checks the token, this service checks it again.
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured.");
@@ -63,6 +66,16 @@ app.MapGet("/api/inventory/{catalogItemId:int}", async (int catalogItemId, Inven
 {
     var s = await db.StockItems.AsNoTracking().FirstOrDefaultAsync(x => x.CatalogItemId == catalogItemId);
     return s is null ? Results.NotFound() : Results.Ok(new { stockItem = ToDto(s) });
+}).RequireAuthorization("admin");
+
+app.MapGet("/api/inventory/reservations/{orderId:int}", async (int orderId, InventoryDbContext db) =>
+{
+    var r = await db.Reservations.AsNoTracking().Include(x => x.Lines).FirstOrDefaultAsync(x => x.OrderId == orderId);
+    return r is null ? Results.NotFound() : Results.Ok(new
+    {
+        reservation = new { r.OrderId, Status = r.Status.ToString(), r.Reason, r.CreatedAt, r.ReleasedAt,
+            Lines = r.Lines.Select(l => new { l.CatalogItemId, l.Quantity }) }
+    });
 }).RequireAuthorization("admin");
 
 app.Run();
