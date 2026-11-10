@@ -9,6 +9,11 @@ services:
      - ConnectionStrings__CatalogConnection=Server=sqlserver,1433;Initial Catalog=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=${SQL_SA_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;
      - ConnectionStrings__IdentityConnection=Server=sqlserver,1433;Initial Catalog=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=${SQL_SA_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;
      - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
+     # Checkout publishes BasketCheckedOut to the Ordering service.
+     - RABBITMQ_HOST=rabbitmq
+     - RABBITMQ_USER=${RABBITMQ_USER:?copy .env.example to .env}
+     - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:?copy .env.example to .env}
+     - RABBITMQ_VHOST=${RABBITMQ_VHOST:?copy .env.example to .env}
    volumes:
      - ~/.aspnet/https:/root/.aspnet/https:ro
      - ~/.microsoft/usersecrets:/root/.microsoft/usersecrets:ro

@@ -7,8 +7,12 @@ services:
       context: .
       dockerfile: src/Web/Dockerfile
     depends_on:
-      - "sqlserver"
-      - "catalogservice"
+      sqlserver:
+        condition: service_started
+      catalogservice:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
   eshoppublicapi:
     image: ${DOCKER_REGISTRY-}eshoppublicapi
     build:

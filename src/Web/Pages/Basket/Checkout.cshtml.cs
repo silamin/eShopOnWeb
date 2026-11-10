@@ -8,6 +8,7 @@ using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Web.Interfaces;
+using Microsoft.eShopWeb.Web.Services;
 
 namespace Microsoft.eShopWeb.Web.Pages.Basket;
 
@@ -20,13 +21,16 @@ public class CheckoutModel : PageModel
     private string? _username = null;
     private readonly IBasketViewModelService _basketViewModelService;
     private readonly IAppLogger<CheckoutModel> _logger;
+    private readonly ICheckoutEventPublisher _checkoutEvents;
 
     public CheckoutModel(IBasketService basketService,
         IBasketViewModelService basketViewModelService,
         SignInManager<ApplicationUser> signInManager,
         IOrderService orderService,
-        IAppLogger<CheckoutModel> logger)
+        IAppLogger<CheckoutModel> logger,
+        ICheckoutEventPublisher checkoutEvents)
     {
+        _checkoutEvents = checkoutEvents;
         _basketService = basketService;
         _signInManager = signInManager;
         _orderService = orderService;
@@ -54,7 +58,11 @@ public class CheckoutModel : PageModel
 
             var updateModel = items.ToDictionary(b => b.Id.ToString(), b => b.Quantity);
             await _basketService.SetQuantities(BasketModel.Id, updateModel);
+            // Strangler, transition step: the monolith still writes its own order (its "My orders" pages read it),
+            // and the checkout now also goes to the Ordering service, which runs the saga. Published before the
+            // basket is deleted: if the broker does not confirm, checkout fails and the basket is still there.
             await _orderService.CreateOrderAsync(BasketModel.Id, new Address("123 Main St.", "Kent", "OH", "United States", "44240"));
+            await _checkoutEvents.PublishAsync(BasketModel.Id);
             await _basketService.DeleteBasketAsync(BasketModel.Id);
         }
         catch (EmptyBasketOnCheckoutException emptyBasketOnCheckoutException)

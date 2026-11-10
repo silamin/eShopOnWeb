@@ -19,6 +19,10 @@ public static class ConfigureCoreServices
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IBasketQueryService, BasketQueryService>();
 
+        // Checkout -> BasketCheckedOut to the Ordering service (one broker connection, opened on first checkout).
+        services.AddSingleton<Microsoft.eShopWeb.Web.Services.BrokerConnection>();
+        services.AddScoped<Microsoft.eShopWeb.Web.Services.ICheckoutEventPublisher, Microsoft.eShopWeb.Web.Services.CheckoutEventPublisher>();
+
         var catalogSettings = configuration.Get<CatalogSettings>() ?? new CatalogSettings();
         services.AddSingleton<IUriComposer>(new UriComposer(catalogSettings));
 
