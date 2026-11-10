@@ -29,6 +29,7 @@ services:
       - "eshopwebmvc"
       - "eshoppublicapi"
       - "catalogservice"
+      - "catalogservice-2"
       - "inventoryservice"
       - "orderingservice"
   catalogservice:
@@ -41,6 +42,11 @@ services:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
+  catalogservice-2:
+    # Second Catalog instance (same image, same catalog-db, does not seed). The gateway balances between the two.
+    image: ${DOCKER_REGISTRY-}catalogservice
+    depends_on:
+      - "catalogservice"
   inventoryservice:
     image: ${DOCKER_REGISTRY-}inventoryservice
     build:

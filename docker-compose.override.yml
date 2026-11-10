@@ -45,6 +45,18 @@ services:
      - RABBITMQ_USER=${RABBITMQ_USER:?copy .env.example to .env}
      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:?copy .env.example to .env}
      - RABBITMQ_VHOST=${RABBITMQ_VHOST:?copy .env.example to .env}
+ catalogservice-2:
+   environment:
+     - ASPNETCORE_ENVIRONMENT=Docker
+     - ASPNETCORE_URLS=http://+:8080
+     - ConnectionStrings__CatalogConnection=Server=sqlserver,1433;Database=eShop.CatalogServiceDb;User Id=catalog_svc;Password=${CATALOG_DB_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;Encrypt=false
+     - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
+     - CatalogBaseUrl=
+     - Catalog__Seed=false
+     - RABBITMQ_HOST=rabbitmq
+     - RABBITMQ_USER=${RABBITMQ_USER:?copy .env.example to .env}
+     - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:?copy .env.example to .env}
+     - RABBITMQ_VHOST=${RABBITMQ_VHOST:?copy .env.example to .env}
  inventoryservice:
    environment:
      - ASPNETCORE_ENVIRONMENT=Docker

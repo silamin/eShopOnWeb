@@ -36,6 +36,9 @@ builder.Services.AddSingleton(_ => new EventPublisher(RabbitMqOptions.FromEnviro
 
 var app = builder.Build();
 
+// Two instances share catalog-db. Only the first one seeds (Catalog:Seed, default true; false on the second),
+// so two seeders never race on the "ids 1..12" guard.
+if (app.Configuration.GetValue("Catalog:Seed", true))
 using (var scope = app.Services.CreateScope())
 {
     var seeded = await Seed.RunAsync(scope.ServiceProvider.GetRequiredService<CatalogDbContext>(), app.Logger);
@@ -70,6 +73,10 @@ app.Use(async (ctx, next) =>
         await ctx.Response.WriteAsync(JsonSerializer.Serialize(new { statusCode = ctx.Response.StatusCode, message = ex.Message }));
     }
 });
+
+// Which instance answered: shows the gateway's load balancing (2 instances) in the response headers.
+var instance = Environment.MachineName;
+app.Use(async (ctx, next) => { ctx.Response.Headers["X-Catalog-Instance"] = instance; await next(); });
 
 app.UseAuthentication();
 app.UseAuthorization();
