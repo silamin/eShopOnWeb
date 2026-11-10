@@ -126,7 +126,7 @@ public sealed class SagaConsumer : BackgroundService
 
     private void Reject(BasicDeliverEventArgs ea)
     {
-        _log.LogError("Unreadable {RoutingKey} (message id {MessageId}); rejected", ea.RoutingKey, ea.BasicProperties.MessageId);
+        _log.LogError("Unreadable {RoutingKey} (message id {MessageId}); rejected to the dead-letter queue", ea.RoutingKey, ea.BasicProperties.MessageId);
         _channel!.BasicReject(ea.DeliveryTag, requeue: false);
     }
 

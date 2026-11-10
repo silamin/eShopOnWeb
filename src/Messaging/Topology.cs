@@ -6,6 +6,9 @@ namespace Eshop.Messaging;
 public static class Exchanges
 {
     public const string Events = "eshop.events";
+
+    /// <summary>Dead letters: a message a consumer rejects (it cannot be read) is moved here, not dropped.</summary>
+    public const string DeadLetters = "eshop.dead-letters";
 }
 
 /// <summary>Routing keys: dot-separated, lower case. Publishers choose the key; consumers bind by pattern.</summary>
@@ -48,14 +51,31 @@ public static class Topology
         (Queues.PaymentRequests, RoutingKeys.PaymentRequested),
     };
 
-    /// <summary>Idempotent: declaring what already exists with the same arguments changes nothing.</summary>
+    /// <summary>Every work queue has a dead-letter queue "<queue>.dlq" (DeadLetterQueue(queue)).</summary>
+    public static string DeadLetterQueue(string queue) => queue + ".dlq";
+
+    /// <summary>
+    /// Idempotent: declaring what already exists with the same arguments changes nothing. Each work queue
+    /// is declared with x-dead-letter-exchange, so BasicReject(requeue: false) moves the message to its
+    /// .dlq queue, where it can be read in the management UI and re-sent by hand. (Changing a queue's
+    /// arguments is not allowed on a running broker: after this change, recreate the broker once.)
+    /// </summary>
     public static void Declare(IModel channel)
     {
         channel.ExchangeDeclare(Exchanges.Events, ExchangeType.Topic, durable: true, autoDelete: false);
-        foreach (var (queue, pattern) in Bindings)
+        channel.ExchangeDeclare(Exchanges.DeadLetters, ExchangeType.Direct, durable: true, autoDelete: false);
+        foreach (var queue in Bindings.Select(b => b.Queue).Distinct())
         {
-            channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
-            channel.QueueBind(queue, Exchanges.Events, pattern);
+            var dlq = DeadLetterQueue(queue);
+            channel.QueueDeclare(dlq, durable: true, exclusive: false, autoDelete: false);
+            channel.QueueBind(dlq, Exchanges.DeadLetters, routingKey: queue);
+            channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false, arguments: new Dictionary<string, object>
+            {
+                ["x-dead-letter-exchange"] = Exchanges.DeadLetters,
+                ["x-dead-letter-routing-key"] = queue,
+            });
         }
+        foreach (var (queue, pattern) in Bindings)
+            channel.QueueBind(queue, Exchanges.Events, pattern);
     }
 }

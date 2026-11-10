@@ -100,7 +100,7 @@ public sealed class OrderEventsConsumer : BackgroundService
 
     private void Reject(BasicDeliverEventArgs ea, string what)
     {
-        _log.LogError("Unreadable {What} (message id {MessageId}); rejected", what, ea.BasicProperties.MessageId);
+        _log.LogError("Unreadable {What} (message id {MessageId}); rejected to the dead-letter queue", what, ea.BasicProperties.MessageId);
         _channel!.BasicReject(ea.DeliveryTag, requeue: false);
     }
 

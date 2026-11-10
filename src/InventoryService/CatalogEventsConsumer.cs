@@ -11,7 +11,7 @@ namespace InventoryService;
 /// stock line with INVENTORY_STARTING_QUANTITY. Manual ack, one message at a time, ack only after the
 /// database commit: a crash before the commit means a redelivery, not a lost stock line.
 /// Idempotent: a redelivered or duplicate event for an id that already has a stock line changes nothing.
-/// A message that cannot be read is rejected without requeue (the dead-letter queue comes with the saga).
+/// A message that cannot be read is rejected without requeue: it moves to inventory.catalog-events.dlq.
 /// </summary>
 public sealed class CatalogEventsConsumer : BackgroundService
 {
@@ -72,7 +72,7 @@ public sealed class CatalogEventsConsumer : BackgroundService
             catch (System.Text.Json.JsonException) { evt = null; }
             if (evt is null || evt.CatalogItemId < 1)
             {
-                _log.LogError("Unreadable CatalogItemCreated (message id {MessageId}); rejected", ea.BasicProperties.MessageId);
+                _log.LogError("Unreadable CatalogItemCreated (message id {MessageId}); rejected to the dead-letter queue", ea.BasicProperties.MessageId);
                 channel.BasicReject(ea.DeliveryTag, requeue: false);
                 return;
             }

@@ -63,7 +63,7 @@ public sealed class PaymentConsumer : BackgroundService
             catch (System.Text.Json.JsonException) { evt = null; }
             if (evt is null || evt.OrderId < 1)
             {
-                _log.LogError("Unreadable PaymentRequested (message id {MessageId}); rejected", ea.BasicProperties.MessageId);
+                _log.LogError("Unreadable PaymentRequested (message id {MessageId}); rejected to the dead-letter queue", ea.BasicProperties.MessageId);
                 channel.BasicReject(ea.DeliveryTag, requeue: false);
                 return;
             }
