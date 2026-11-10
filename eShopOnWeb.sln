@@ -51,6 +51,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Messaging", "src\Messaging\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventProbe", "src\EventProbe\EventProbe.csproj", "{4EA08DDE-C790-48BA-9210-985BCB67E5E6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventoryService", "src\InventoryService\InventoryService.csproj", "{98F0D291-9B1F-4A7B-9EDF-A0D2663FDD67}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -121,6 +123,10 @@ Global
 		{4EA08DDE-C790-48BA-9210-985BCB67E5E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4EA08DDE-C790-48BA-9210-985BCB67E5E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4EA08DDE-C790-48BA-9210-985BCB67E5E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{98F0D291-9B1F-4A7B-9EDF-A0D2663FDD67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{98F0D291-9B1F-4A7B-9EDF-A0D2663FDD67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{98F0D291-9B1F-4A7B-9EDF-A0D2663FDD67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{98F0D291-9B1F-4A7B-9EDF-A0D2663FDD67}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -141,6 +147,7 @@ Global
 		{C82F08E3-DF7A-4564-A569-0E5586A51F5B} = {419A6ACE-0419-4315-A6FB-B0E63D39432E}
 		{55A6A31A-C99B-424F-853E-6121FA408559} = {419A6ACE-0419-4315-A6FB-B0E63D39432E}
 		{4EA08DDE-C790-48BA-9210-985BCB67E5E6} = {419A6ACE-0419-4315-A6FB-B0E63D39432E}
+		{98F0D291-9B1F-4A7B-9EDF-A0D2663FDD67} = {419A6ACE-0419-4315-A6FB-B0E63D39432E}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {49813262-5DA3-4D61-ABD3-493C74CE8C2B}

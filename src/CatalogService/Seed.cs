@@ -26,7 +26,8 @@ public static class Seed
         (2, 5, "Prism White TShirt", 12),
     };
 
-    public static async Task RunAsync(CatalogDbContext db, ILogger logger)
+    /// <summary>Returns the items it seeded (empty when catalog-db already had items), so the caller can publish them.</summary>
+    public static async Task<IReadOnlyList<CatalogItem>> RunAsync(CatalogDbContext db, ILogger logger)
     {
         await db.Database.EnsureCreatedAsync();
 
@@ -59,6 +60,8 @@ public static class Seed
             if (!ids.SequenceEqual(Enumerable.Range(1, Items.Length)))
                 throw new InvalidOperationException("Seeded catalog item ids are not 1..N; ids no longer match the monolith.");
             logger.LogInformation("Seeded catalog-db: {Count} items with ids 1..{Count}", Items.Length, Items.Length);
+            return await db.CatalogItems.AsNoTracking().OrderBy(i => i.Id).ToListAsync();
         }
+        return Array.Empty<CatalogItem>();
     }
 }

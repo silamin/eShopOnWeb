@@ -25,6 +25,7 @@ services:
       - "eshopwebmvc"
       - "eshoppublicapi"
       - "catalogservice"
+      - "inventoryservice"
   catalogservice:
     image: ${DOCKER_REGISTRY-}catalogservice
     build:
@@ -33,6 +34,18 @@ services:
     depends_on:
       sql-init:
         condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+  inventoryservice:
+    image: ${DOCKER_REGISTRY-}inventoryservice
+    build:
+      context: .
+      dockerfile: src/InventoryService/Dockerfile
+    depends_on:
+      sql-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
   sql-init:
     image: ${DOCKER_REGISTRY-}sql-init
     build:

@@ -36,12 +36,31 @@ services:
      - ConnectionStrings__CatalogConnection=Server=sqlserver,1433;Database=eShop.CatalogServiceDb;User Id=catalog_svc;Password=${CATALOG_DB_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;Encrypt=false
      - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
      - CatalogBaseUrl=
+     - RABBITMQ_HOST=rabbitmq
+     - RABBITMQ_USER=${RABBITMQ_USER:?copy .env.example to .env}
+     - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:?copy .env.example to .env}
+     - RABBITMQ_VHOST=${RABBITMQ_VHOST:?copy .env.example to .env}
+ inventoryservice:
+   environment:
+     - ASPNETCORE_ENVIRONMENT=Docker
+     - ASPNETCORE_URLS=http://+:8080
+     - ConnectionStrings__InventoryConnection=Server=sqlserver,1433;Database=eShop.InventoryDb;User Id=inventory_svc;Password=${INVENTORY_DB_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;Encrypt=false
+     - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
+     # Starting quantity of a new stock line. The code default is 0 (the honest real-world value); 10 for the demo.
+     - INVENTORY_STARTING_QUANTITY=10
+     - RABBITMQ_HOST=rabbitmq
+     - RABBITMQ_USER=${RABBITMQ_USER:?copy .env.example to .env}
+     - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:?copy .env.example to .env}
+     - RABBITMQ_VHOST=${RABBITMQ_VHOST:?copy .env.example to .env}
  sql-init:
    environment:
      - SA_PASSWORD=${SQL_SA_PASSWORD:?copy .env.example to .env}
      - CATALOG_DB_NAME=eShop.CatalogServiceDb
      - CATALOG_DB_USER=catalog_svc
      - CATALOG_DB_PASSWORD=${CATALOG_DB_PASSWORD:?copy .env.example to .env}
+     - INVENTORY_DB_NAME=eShop.InventoryDb
+     - INVENTORY_DB_USER=inventory_svc
+     - INVENTORY_DB_PASSWORD=${INVENTORY_DB_PASSWORD:?copy .env.example to .env}
  rabbitmq:
    environment:
      # The image creates only this user (no guest) and this vhost; the user gets rights on that vhost only.

@@ -23,6 +23,7 @@ docker compose up
 | SQL Server (azure-sql-edge) | localhost:1433, bound to 127.0.0.1 only (reachable from this machine, not from the network); services reach it as `sqlserver,1433` on the compose network |
 | RabbitMQ management UI | http://localhost:15672, bound to 127.0.0.1 only; log in with `RABBITMQ_USER` / `RABBITMQ_PASSWORD` from `.env`; vhost `eshop`. The AMQP port 5672 is not published |
 | Catalog service | not published; reached only through the gateway (`/api/catalog-items`, `/api/catalog-brands`, `/api/catalog-types`) |
+| Inventory service | not published; reached only through the gateway, admin token required: `/api/inventory` (all stock lines), `/api/inventory/{catalogItemId}` |
 | sql-init (one-shot) | runs at start, creates each service's database and login, then exits |
 
 Verified Sat 7 Nov 2026 on Docker Desktop 4.88.1:
@@ -31,16 +32,18 @@ Verified Sat 7 Nov 2026 on Docker Desktop 4.88.1:
 - Phase 0, verified Sat 7 Nov 2026 in Chrome through the gateway: `localhost:5100/gateway/health` returns `{"status":"ok"}`; the catalog shows (10 of 12); add-to-basket works; login as the seeded admin works; `localhost:5100/admin` lists all 12 products and its API calls go to `http://localhost:5100/api/catalog-items`, `-brands` and `-types`.
 - Sun 8 Nov 2026 (docker compose on a Linux container host, headless Chrome): with 5106 and 5200 not published, `localhost:5106` and `localhost:5200` refuse the connection; logged in as the seeded admin, `localhost:5100/admin` lists all 12 products, and every request the page makes goes to `localhost:5100` (`/api/catalog-items`, `-brands`, `-types`), none fails; `localhost:5100/swagger` loads the Public API's Swagger UI. The Blazor admin's `webBase` (and the web's and the API's `webBase`/`apiBase`) point at the gateway; the API's CORS origin is derived from `webBase`.
 - Right after `docker compose up` the gateway can answer 502 for a while: the web waits for SQL Edge to start (up to 30 s) before it launches.
+- Tue 10 Nov 2026 (docker compose on a Linux container host): the Inventory service with its own `inventory-db` (login `inventory_svc`, created by sql-init). The 12 seeded catalog items reach Inventory as 12 `CatalogItemCreated` events: 12 stock lines, quantity 10 each. Logged in as the seeded admin (`/api/authenticate` through 5100), `POST /api/catalog-items` creates item 13 (201) and `GET /api/inventory/13` returns its stock line, quantity 10; without a token `/api/inventory` answers 401; an unknown id 404. A duplicate `CatalogItemCreated` for item 3 changes nothing; a message that is not JSON is rejected once (not requeued); `catalog.item.updated` is acknowledged and ignored. Restarting Catalog does not re-seed and publishes nothing.
+- `event-probe` and the Inventory service both consume `inventory.catalog-events`. Run the probe with Inventory stopped, or Inventory takes the probe's item-13 event (and the probe reports FAIL).
 - On first start the log can show seeding errors. Web and API both try to `CREATE DATABASE` at the same time; one of them wins (here the API seeded it) and the shop works. This is a startup race in the unmodified monolith, not something added here.
 
 ## Krav checklist (from Semesteropgave.pdf)
 
 - [ ] 1. Services: split the monolith into microservices
 - [ ] 2. Strangler pattern (partly: the gateway sits in front of the monolith, and the first route is strangled: `/api/catalog-*` now goes to the Catalog service, and the monolith reads the catalog from it through `ICatalogClient`)
-- [ ] 3. Lagerstyring (inventory)
+- [ ] 3. Lagerstyring (inventory) (partly: Inventory service with its own `inventory-db`; `CatalogItemCreated` creates a stock line. The stock model and the stock check come from my own inventory-management-system (Dec 2024). Reservation at checkout and release on cancel still to do)
 - [ ] 4. API gateway (partly: YARP routing in place; JWT check on the catalog write routes in place; JWT on all of `/api/*`, rate limiting and load balancing across two instances still to do)
 - [ ] 5. Asynchronous communication
-- [ ] 6. Own database per service (partly: `catalog-db` with its own SQL login, created by the one-shot sql-init step)
+- [ ] 6. Own database per service (partly: `catalog-db` and `inventory-db`, each with its own SQL login, created by the one-shot sql-init step)
 - [ ] 7. Fault handling and monitoring
 - [ ] 8. CI/CD
 - [ ] 9. Documentation

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using CatalogService;
+using Eshop.Messaging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -30,11 +31,32 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// Events out (krav 5): CatalogItemCreated, so Inventory creates a stock line. Broker settings from the environment.
+builder.Services.AddSingleton(_ => new EventPublisher(RabbitMqOptions.FromEnvironment()));
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    await Seed.RunAsync(scope.ServiceProvider.GetRequiredService<CatalogDbContext>(), app.Logger);
+    var seeded = await Seed.RunAsync(scope.ServiceProvider.GetRequiredService<CatalogDbContext>(), app.Logger);
+    // The 12 seeded items get stock lines the same way a new item does: through the event, never a shared table.
+    var publisher = app.Services.GetRequiredService<EventPublisher>();
+    foreach (var i in seeded) PublishCreated(publisher, i, app.Logger);
+}
+
+// Commit, then publish (with publisher confirms). If the publish fails, the item exists without a stock line:
+// the known commit-then-publish gap (outbox not built), logged with the id so it can be re-sent.
+static void PublishCreated(EventPublisher publisher, CatalogItem item, ILogger log)
+{
+    try
+    {
+        publisher.Publish(RoutingKeys.CatalogItemCreated,
+            new CatalogItemCreated(Guid.NewGuid(), DateTimeOffset.UtcNow, item.Id, item.Name, item.Price));
+    }
+    catch (Exception ex)
+    {
+        log.LogError(ex, "CatalogItemCreated NOT published for item {Id}; Inventory has no stock line for it", item.Id);
+    }
 }
 
 // Same error shape as the Public API's ExceptionMiddleware: 409 for duplicates, 500 otherwise.
@@ -101,7 +123,7 @@ app.MapGet("/api/catalog-items/{catalogItemId:int}", async (int catalogItemId, C
     return item is null ? Results.NotFound() : Results.Ok(new { catalogItem = ToDto(item) });
 });
 
-app.MapPost("/api/catalog-items", [Authorize(Roles = AdminRole)] async (CreateCatalogItemRequest r, CatalogDbContext db) =>
+app.MapPost("/api/catalog-items", [Authorize(Roles = AdminRole)] async (CreateCatalogItemRequest r, CatalogDbContext db, EventPublisher publisher) =>
 {
     if (await db.CatalogItems.AnyAsync(i => i.Name == r.Name))
         throw new DuplicateException($"A catalogItem with name {r.Name} already exists");
@@ -118,6 +140,7 @@ app.MapPost("/api/catalog-items", [Authorize(Roles = AdminRole)] async (CreateCa
     };
     db.CatalogItems.Add(item);
     await db.SaveChangesAsync();
+    PublishCreated(publisher, item, app.Logger);
     var dto = ToDto(item);
     return Results.Created($"api/catalog-items/{dto.Id}", new { catalogItem = dto });
 });
