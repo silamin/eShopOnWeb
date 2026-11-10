@@ -26,6 +26,7 @@ services:
       - "eshoppublicapi"
       - "catalogservice"
       - "inventoryservice"
+      - "orderingservice"
   catalogservice:
     image: ${DOCKER_REGISTRY-}catalogservice
     build:
@@ -41,6 +42,16 @@ services:
     build:
       context: .
       dockerfile: src/InventoryService/Dockerfile
+    depends_on:
+      sql-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+  orderingservice:
+    image: ${DOCKER_REGISTRY-}orderingservice
+    build:
+      context: .
+      dockerfile: src/OrderingService/Dockerfile
     depends_on:
       sql-init:
         condition: service_completed_successfully
