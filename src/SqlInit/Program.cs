@@ -6,7 +6,7 @@ using Microsoft.Data.SqlClient;
 // the login password is re-synced from the environment each time).
 //
 //   SA_PASSWORD                 sa password of the shared SQL instance
-//   CATALOG_ / INVENTORY_ / ORDERING_ DB_NAME / _USER / _PASSWORD      (later: PAYMENT_)
+//   CATALOG_ / INVENTORY_ / ORDERING_ / PAYMENT_ DB_NAME / _USER / _PASSWORD
 
 var sa = Environment.GetEnvironmentVariable("SA_PASSWORD") ?? throw new InvalidOperationException("SA_PASSWORD missing");
 var host = Environment.GetEnvironmentVariable("SQL_HOST") ?? "sqlserver,1433";

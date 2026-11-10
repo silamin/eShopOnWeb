@@ -3,8 +3,8 @@ namespace Eshop.Messaging;
 // Shared event contracts. These are the only shapes that travel on the wire: services map their own
 // domain types to and from these explicitly (no domain types on the message). Every event carries an
 // EventId (identifies this message, used for idempotency/trace) and OccurredAt (UTC).
-// Only the events needed so far are here; PaymentRequested and PaymentFailed are added with the service
-// that publishes them.
+// All events of the order saga are here: Catalog -> Inventory, monolith -> Ordering, Ordering <-> Inventory,
+// Ordering <-> Payment.
 
 public interface IEvent
 {
@@ -69,4 +69,19 @@ public sealed record StockRejected(
     Guid EventId,
     DateTimeOffset OccurredAt,
     int OrderId,
+    string Reason) : IEvent;
+
+/// <summary>Ordering to Payment: stock is reserved, take payment for the order total.</summary>
+public sealed record PaymentRequested(
+    Guid EventId,
+    DateTimeOffset OccurredAt,
+    int OrderId,
+    decimal Amount) : IEvent;
+
+/// <summary>Payment to Ordering: the (simulated) payment was declined; Ordering cancels the order.</summary>
+public sealed record PaymentFailed(
+    Guid EventId,
+    DateTimeOffset OccurredAt,
+    int OrderId,
+    decimal Amount,
     string Reason) : IEvent;

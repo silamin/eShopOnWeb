@@ -5,7 +5,8 @@ using RabbitMQ.Client.Events;
 namespace OrderingService;
 
 /// <summary>
-/// Consumes ordering.basket-events (basket.checked-out) and ordering.stock-events (stock.*). Commit, then
+/// Consumes ordering.basket-events (basket.checked-out), ordering.stock-events (stock.*) and
+/// ordering.payment-events (payment.*). Commit, then
 /// publish with publisher confirms, then ack. Manual ack, one message at a time per queue. An unreadable
 /// message is rejected (not requeued); a failure while handling is requeued after 2 s.
 /// </summary>
@@ -39,7 +40,7 @@ public sealed class SagaConsumer : BackgroundService
         _channel = _connection.CreateModel();
         Topology.Declare(_channel);
         _channel.BasicQos(0, 1, false);
-        foreach (var queue in new[] { Queues.OrderingBasketEvents, Queues.OrderingStockEvents })
+        foreach (var queue in new[] { Queues.OrderingBasketEvents, Queues.OrderingStockEvents, Queues.OrderingPaymentEvents })
         {
             var consumer = new EventingBasicConsumer(_channel);
             consumer.Received += (_, ea) => Handle(ea);
@@ -72,7 +73,8 @@ public sealed class SagaConsumer : BackgroundService
                 {
                     var evt = Read<StockReserved>(ea);
                     if (evt is null) { Reject(ea); return; }
-                    var result = saga.HandleAsync(evt).GetAwaiter().GetResult();
+                    var (next, result) = saga.HandleAsync(evt).GetAwaiter().GetResult();
+                    if (next is not null) _publisher.Publish(RoutingKeys.PaymentRequested, next);
                     _log.LogInformation("StockReserved order {OrderId}: {Result}", evt.OrderId, result);
                     break;
                 }
@@ -83,6 +85,23 @@ public sealed class SagaConsumer : BackgroundService
                     var (next, result) = saga.HandleAsync(evt).GetAwaiter().GetResult();
                     if (next is not null) _publisher.Publish(RoutingKeys.OrderCancelled, next);
                     _log.LogInformation("StockRejected order {OrderId}: {Result}", evt.OrderId, result);
+                    break;
+                }
+                case RoutingKeys.PaymentSucceeded:
+                {
+                    var evt = Read<PaymentSucceeded>(ea);
+                    if (evt is null) { Reject(ea); return; }
+                    var result = saga.HandleAsync(evt).GetAwaiter().GetResult();
+                    _log.LogInformation("PaymentSucceeded order {OrderId}: {Result}", evt.OrderId, result);
+                    break;
+                }
+                case RoutingKeys.PaymentFailed:
+                {
+                    var evt = Read<PaymentFailed>(ea);
+                    if (evt is null) { Reject(ea); return; }
+                    var (next, result) = saga.HandleAsync(evt).GetAwaiter().GetResult();
+                    if (next is not null) _publisher.Publish(RoutingKeys.OrderCancelled, next);
+                    _log.LogInformation("PaymentFailed order {OrderId}: {Result}", evt.OrderId, result);
                     break;
                 }
                 default:

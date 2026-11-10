@@ -14,9 +14,9 @@ var received = new ConcurrentDictionary<string, ConcurrentBag<string>>(); // que
 using var connection = await ConnectWhenReadyAsync(options);
 using var channel = connection.CreateModel();
 Topology.Declare(channel);
-foreach (var (queue, _) in Topology.Bindings) channel.QueuePurge(queue); // start from empty queues
+foreach (var queue in Topology.Bindings.Select(b => b.Queue).Distinct()) channel.QueuePurge(queue); // start from empty queues
 
-foreach (var (queue, _) in Topology.Bindings)
+foreach (var queue in Topology.Bindings.Select(b => b.Queue).Distinct())
 {
     received[queue] = new ConcurrentBag<string>();
     var q = queue;

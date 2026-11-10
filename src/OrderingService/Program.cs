@@ -6,9 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 using OrderingService;
 
 // Ordering Service (krav 1: carved out of the monolith), own database ordering-db (krav 6), and the
-// orchestrator of the order saga (krav 5). Started Tue 10 Nov: BasketCheckedOut -> order -> OrderCreated;
-// StockReserved / StockRejected. Still to come: the monolith publishing BasketCheckedOut at checkout,
-// PaymentRequested / PaymentSucceeded / PaymentFailed, and the buyer's order pages reading from here.
+// orchestrator of the order saga (krav 5): see OrderSaga. Still to come: the buyer's order pages reading
+// from here (the monolith still writes its own order too, as a Strangler transition step).
 
 var builder = WebApplication.CreateBuilder(args);
 

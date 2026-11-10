@@ -18,6 +18,9 @@ public static class RoutingKeys
     public const string OrderCancelled = "order.cancelled";
     public const string StockReserved = "stock.reserved";
     public const string StockRejected = "stock.rejected";
+    // Not "payment.requested": that would match Ordering's own "payment.*" binding.
+    public const string PaymentRequested = "order.payment-requested";
+    public const string PaymentFailed = "payment.failed";
 }
 
 /// <summary>One durable queue per consumer and concern. A queue only gets the keys it is bound for.</summary>
@@ -28,6 +31,7 @@ public static class Queues
     public const string OrderingPaymentEvents = "ordering.payment-events";
     public const string InventoryOrderEvents = "inventory.order-events";
     public const string OrderingStockEvents = "ordering.stock-events";
+    public const string PaymentRequests = "payment.requests";
 }
 
 public static class Topology
@@ -38,8 +42,10 @@ public static class Topology
         (Queues.InventoryCatalogEvents, "catalog.item.*"),
         (Queues.OrderingBasketEvents, RoutingKeys.BasketCheckedOut),
         (Queues.OrderingPaymentEvents, "payment.*"),
-        (Queues.InventoryOrderEvents, "order.*"),
+        (Queues.InventoryOrderEvents, RoutingKeys.OrderCreated),     // explicit keys, not order.*:
+        (Queues.InventoryOrderEvents, RoutingKeys.OrderCancelled),   // order.payment-requested is not Inventory's
         (Queues.OrderingStockEvents, "stock.*"),
+        (Queues.PaymentRequests, RoutingKeys.PaymentRequested),
     };
 
     /// <summary>Idempotent: declaring what already exists with the same arguments changes nothing.</summary>
