@@ -1,3 +1,15 @@
+# eShopOnWeb → microservices (Systemintegration + Store Systemer, UCL, autumn 2026)
+
+**This fork is a semester project.** The monolith is split into Catalog, Ordering, Inventory and Payment services behind a YARP gateway (Strangler pattern), with RabbitMQ, one database per service, Polly, Serilog + Seq and GitHub Actions.
+
+- **Project documentation, how to run it, the krav checklist and every design decision: [SEMESTEROPGAVE.md](SEMESTEROPGAVE.md).**
+- Quick start: `cp .env.example .env`, then `docker compose build` and `docker compose up -d`; the shop is at http://localhost:5100, the logs at http://localhost:5341.
+- Tests: `dotnet test eShopOnWeb.sln` (Docker running), and with the stack up `dotnet test tests/EndToEndTests`.
+
+Everything below this line is Microsoft's original README for the monolith this fork started from (base commit `4da8212`).
+
+---
+
 # Microsoft eShopOnWeb ASP.NET Core Reference Application
 
 > eShop sample applications have been updated and moved to https://github.com/dotnet/eShop. Active development will continue there. We also recommend the [Reliable Web App](https://learn.microsoft.com/azure/architecture/web-apps/guides/reliable-web-app/overview) patterns guidance for building web apps with enterprise app patterns.
