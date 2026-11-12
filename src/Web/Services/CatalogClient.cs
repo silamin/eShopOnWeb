@@ -3,13 +3,16 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace Microsoft.eShopWeb.Web.Services;
 
 /// <summary>
 /// Typed HttpClient to the Catalog service, called directly on the compose network (not through the
-/// gateway). Reads are open, so no token is sent. The timeout is set where the client is registered
-/// (ConfigureWebServices), which is also where a resilience handler is added later.
+/// gateway). Reads are open, so no token is sent. Timeout, retry and circuit breaker are Polly handlers on
+/// the registration (ConfigureWebServices + CatalogResilience); here their exceptions become
+/// CatalogUnavailableException, the one failure the pages handle.
 /// </summary>
 public class CatalogClient : ICatalogClient
 {
@@ -73,6 +76,14 @@ public class CatalogClient : ICatalogClient
                 throw new CatalogUnavailableException($"Catalog service answered {(int)response.StatusCode} for {url}.");
             return await response.Content.ReadFromJsonAsync<T>(Json, ct)
                    ?? throw new CatalogUnavailableException($"Catalog service sent an empty body for {url}.");
+        }
+        catch (BrokenCircuitException ex)
+        {
+            throw new CatalogUnavailableException("Catalog service is unavailable (circuit open; not called).", ex);
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            throw new CatalogUnavailableException("Catalog service did not answer in time.", ex);   // Polly per-attempt timeout
         }
         catch (HttpRequestException ex)
         {

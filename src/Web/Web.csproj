@@ -34,6 +34,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>     
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="wwwroot\fonts\" />
