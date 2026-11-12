@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
     <Content Remove="compilerconfig.json" />
   </ItemGroup>
 

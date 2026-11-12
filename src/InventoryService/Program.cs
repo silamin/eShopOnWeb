@@ -1,3 +1,4 @@
+using Serilog;
 using System.Text;
 using InventoryService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -9,6 +10,20 @@ using Microsoft.IdentityModel.Tokens;
 // (StockReserved / StockRejected back to Ordering); OrderCancelled releases it (the saga's compensation).
 
 var builder = WebApplication.CreateBuilder(args);
+// Serilog (krav 7): structured logs to the console, read with `docker compose logs`. Every event carries
+// Service and Host (the container, so the two Catalog instances can be told apart). Levels can be
+// changed without a rebuild, e.g. Serilog__MinimumLevel__Default=Debug in the environment.
+builder.Host.UseSerilog((ctx, lc) => lc
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
+    .MinimumLevel.Override("Yarp", Serilog.Events.LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "inventory")
+    .Enrich.WithProperty("Host", Environment.MachineName)
+    .WriteTo.Console(outputTemplate:
+        "[{Timestamp:HH:mm:ss} {Level:u3}] {Service}@{Host} {SourceContext}: {Message:lj}{NewLine}{Exception}")
+    .ReadFrom.Configuration(ctx.Configuration));
 
 builder.Services.AddDbContext<InventoryDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("InventoryConnection")));
@@ -36,6 +51,8 @@ builder.Services.AddAuthorization(o =>
     o.AddPolicy("admin", p => p.RequireAuthenticatedUser().RequireRole("Administrators")));
 
 var app = builder.Build();
+// One log event per HTTP request: method, path, status code, elapsed ms.
+app.UseSerilogRequestLogging();
 
 using (var scope = app.Services.CreateScope())
 {

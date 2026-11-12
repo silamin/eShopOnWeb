@@ -10,6 +10,7 @@
 // window per client IP, RateLimiting:PermitLimit requests per RateLimiting:WindowSeconds (default 100 per 10 s).
 // Over the limit the gateway answers 429 itself; the request never reaches a service.
 using System.Globalization;
+using Serilog;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -17,6 +18,20 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+// Serilog (krav 7): structured logs to the console, read with `docker compose logs`. Every event carries
+// Service and Host (the container, so the two Catalog instances can be told apart). Levels can be
+// changed without a rebuild, e.g. Serilog__MinimumLevel__Default=Debug in the environment.
+builder.Host.UseSerilog((ctx, lc) => lc
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
+    .MinimumLevel.Override("Yarp", Serilog.Events.LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "gateway")
+    .Enrich.WithProperty("Host", Environment.MachineName)
+    .WriteTo.Console(outputTemplate:
+        "[{Timestamp:HH:mm:ss} {Level:u3}] {Service}@{Host} {SourceContext}: {Message:lj}{NewLine}{Exception}")
+    .ReadFrom.Configuration(ctx.Configuration));
 
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key is not configured (JWT_KEY in .env).");
@@ -57,6 +72,8 @@ builder.Services
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
+// One log event per HTTP request: method, path, status code, elapsed ms.
+app.UseSerilogRequestLogging();
 
 app.UseRateLimiter();
 app.UseAuthentication();

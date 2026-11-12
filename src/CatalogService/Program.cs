@@ -1,3 +1,5 @@
+using Serilog;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -9,6 +11,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+// Serilog (krav 7): structured logs to the console, read with `docker compose logs`. Every event carries
+// Service and Host (the container, so the two Catalog instances can be told apart). Levels can be
+// changed without a rebuild, e.g. Serilog__MinimumLevel__Default=Debug in the environment.
+builder.Host.UseSerilog((ctx, lc) => lc
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
+    .MinimumLevel.Override("Yarp", Serilog.Events.LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "catalog")
+    .Enrich.WithProperty("Host", Environment.MachineName)
+    .WriteTo.Console(outputTemplate:
+        "[{Timestamp:HH:mm:ss} {Level:u3}] {Service}@{Host} {SourceContext}: {Message:lj}{NewLine}{Exception}")
+    .ReadFrom.Configuration(ctx.Configuration));
 
 builder.Services.AddDbContext<CatalogDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("CatalogConnection")));
@@ -36,6 +52,8 @@ builder.Services.AddSingleton(sp => new EventPublisher(RabbitMqOptions.FromEnvir
     m => sp.GetRequiredService<ILoggerFactory>().CreateLogger("EventPublisher").LogWarning("{Retry}", m)));
 
 var app = builder.Build();
+// One log event per HTTP request: method, path, status code, elapsed ms.
+app.UseSerilogRequestLogging();
 
 // Two instances share catalog-db. Only the first one seeds (Catalog:Seed, default true; false on the second),
 // so two seeders never race on the "ids 1..12" guard.
