@@ -1,14 +1,19 @@
-version: '3.4'
-
 services:
   eshopwebmvc:
     image: ${DOCKER_REGISTRY-}eshopwebmvc
     build:
       context: .
       dockerfile: src/Web/Dockerfile
+    healthcheck:
+      # Port open = the app is listening. bash's /dev/tcp, because the image has no curl.
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/8080"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
     depends_on:
       sqlserver:
-        condition: service_started
+        condition: service_healthy
       catalogservice:
         condition: service_started
       rabbitmq:
@@ -18,20 +23,35 @@ services:
     build:
       context: .
       dockerfile: src/PublicApi/Dockerfile
+    healthcheck:
+      # Port open = the app is listening. bash's /dev/tcp, because the image has no curl.
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/8080"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
     depends_on:
-      - "sqlserver"
+      sqlserver:
+        condition: service_healthy
   gateway:
     image: ${DOCKER_REGISTRY-}gateway
     build:
       context: .
       dockerfile: src/Gateway/Dockerfile
+    # No 502 window after `docker compose up`: the gateway starts only when the shop and the Public API listen.
     depends_on:
-      - "eshopwebmvc"
-      - "eshoppublicapi"
-      - "catalogservice"
-      - "catalogservice-2"
-      - "inventoryservice"
-      - "orderingservice"
+      eshopwebmvc:
+        condition: service_healthy
+      eshoppublicapi:
+        condition: service_healthy
+      catalogservice:
+        condition: service_started
+      catalogservice-2:
+        condition: service_started
+      inventoryservice:
+        condition: service_started
+      orderingservice:
+        condition: service_started
   catalogservice:
     image: ${DOCKER_REGISTRY-}catalogservice
     build:
@@ -87,6 +107,14 @@ services:
     restart: "no"
   sqlserver:
     image: mcr.microsoft.com/azure-sql-edge
+    healthcheck:
+      # Port open = SQL Server accepts connections. bash's /dev/tcp, because the image has no curl.
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/1433"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+
     ports:
       - "127.0.0.1:1433:1433"
     environment:

@@ -1,22 +1,103 @@
-name: eShopOnWeb Build and Test
+# CI/CD for the SI + SS project (krav 8 test, krav 9 build/deploy).
+#   test    - every push and pull request: build + all tests in eShopOnWeb.sln (unit, functional,
+#             integration; the RabbitMQ integration tests start their own broker with Testcontainers,
+#             which uses the runner's Docker).
+#   e2e     - push to main / manual: the whole stack with docker compose from a clean checkout, then
+#             the one end-to-end test (checkout in the shop -> order Paid).
+#   images  - push to main / manual, after test: one image per service, pushed to GitHub Container
+#             Registry as ghcr.io/<owner>/eshop-<service>:<commit sha> and :latest.
+name: CI
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: '8.0.x'
-        include-prerelease: true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore ./eShopOnWeb.sln
+      - name: Build
+        run: dotnet build ./eShopOnWeb.sln --configuration Release --no-restore
+      - name: Test (unit, functional, integration incl. RabbitMQ in a container)
+        run: dotnet test ./eShopOnWeb.sln --configuration Release --no-build --logger trx --results-directory TestResults
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
 
-    - name: Build with dotnet
-      run: dotnet build ./eShopOnWeb.sln --configuration Release
-    
-    - name: Test with dotnet
-      run: dotnet test ./eShopOnWeb.sln --configuration Release
+  e2e:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Start the stack from a clean checkout
+        run: |
+          cp .env.example .env
+          docker compose build
+          docker compose up -d
+      - name: Wait for the shop through the gateway
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:5100/health > /dev/null; then echo "healthy after $((i*5)) s"; exit 0; fi
+            sleep 5
+          done
+          docker compose ps -a
+          exit 1
+      - name: End-to-end test (checkout -> Paid)
+        run: dotnet test tests/EndToEndTests --configuration Release
+      - name: Service logs
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+
+  images:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { name: web,       dockerfile: src/Web/Dockerfile }
+          - { name: publicapi, dockerfile: src/PublicApi/Dockerfile }
+          - { name: gateway,   dockerfile: src/Gateway/Dockerfile }
+          - { name: catalog,   dockerfile: src/CatalogService/Dockerfile }
+          - { name: inventory, dockerfile: src/InventoryService/Dockerfile }
+          - { name: ordering,  dockerfile: src/OrderingService/Dockerfile }
+          - { name: payment,   dockerfile: src/PaymentService/Dockerfile }
+          - { name: sql-init,  dockerfile: src/SqlInit/Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image name (registry names must be lower case)
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/eshop-${{ matrix.name }}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
