@@ -35,7 +35,12 @@ public sealed class SagaConsumer : BackgroundService
         foreach (var queue in new[] { Queues.OrderingBasketEvents, Queues.OrderingStockEvents, Queues.OrderingPaymentEvents })
         {
             var consumer = new EventingBasicConsumer(_channel);
-            consumer.Received += (_, ea) => Handle(ea);
+            consumer.Received += (_, ea) =>
+        {
+            // The message's correlation id becomes this handler's: on every log line, and on what it publishes.
+            using (_log.BeginScope(new Dictionary<string, object> { [Correlation.LogProperty] = Correlation.FromMessage(ea.BasicProperties) }))
+                Handle(ea);
+        };
             _channel.BasicConsume(queue, autoAck: false, consumer);
             _log.LogInformation("Consuming {Queue}", queue);
         }

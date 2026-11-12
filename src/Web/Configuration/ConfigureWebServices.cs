@@ -19,11 +19,13 @@ public static class ConfigureWebServices
         var catalogBaseUrl = configuration["CatalogService:BaseUrl"]
             ?? throw new InvalidOperationException("CatalogService:BaseUrl is not configured.");
         services.AddSingleton<CatalogResilience>();
+        services.AddTransient<CorrelationHandler>();
         services.AddHttpClient<ICatalogClient, CatalogClient>(client =>
             {
                 client.BaseAddress = new Uri(catalogBaseUrl);
                 client.Timeout = TimeSpan.FromSeconds(6);
             })
+            .AddHttpMessageHandler<CorrelationHandler>()
             .AddPolicyHandler((sp, _) => sp.GetRequiredService<CatalogResilience>().Retry)
             .AddPolicyHandler((sp, _) => sp.GetRequiredService<CatalogResilience>().CircuitBreaker)
             .AddPolicyHandler((sp, _) => sp.GetRequiredService<CatalogResilience>().Timeout);

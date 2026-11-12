@@ -32,6 +32,7 @@ public sealed class EventPublisher : IDisposable
         props.ContentType = "application/json";
         props.MessageId = message.EventId.ToString();
         props.Type = typeof(T).Name;
+        props.CorrelationId = Correlation.Current ?? Correlation.NewId();   // follows the work across services
         var body = JsonSerializer.SerializeToUtf8Bytes(message, Json);
 
         lock (_gate) // IModel is not thread-safe

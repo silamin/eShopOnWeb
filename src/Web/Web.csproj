@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Seq" />
     <Content Remove="compilerconfig.json" />
   </ItemGroup>
 

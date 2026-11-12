@@ -79,10 +79,12 @@ public class TopologyTests : IClassFixture<RabbitMqFixture>
     }
 
     [Fact]
-    public async Task Event_round_trips_through_the_broker_with_its_contract_fields()
+    public async Task Event_round_trips_through_the_broker_with_its_contract_fields_and_correlation_id()
     {
         var sent = new PaymentFailed(Guid.NewGuid(), Now, 77, 117m, "Declined (simulated)");
+        Correlation.Current = "checkout-42";   // what the HTTP request or the incoming message set
         using (var publisher = new EventPublisher(_rabbit.Options)) publisher.Publish(RoutingKeys.PaymentFailed, sent);
+        Correlation.Current = null;
 
         using var connection = await BrokerConnect.OpenAsync(_rabbit.Options, "test-roundtrip");
         using var channel = connection.CreateModel();
@@ -93,6 +95,7 @@ public class TopologyTests : IClassFixture<RabbitMqFixture>
         Assert.Equal(nameof(PaymentFailed), got!.BasicProperties.Type);
         Assert.Equal(sent.EventId.ToString(), got.BasicProperties.MessageId);
         Assert.True(got.BasicProperties.Persistent);
+        Assert.Equal("checkout-42", got.BasicProperties.CorrelationId);   // the id travels with the event
         Assert.Equal(sent, EventPublisher.Deserialize<PaymentFailed>(got.Body));
     }
 }

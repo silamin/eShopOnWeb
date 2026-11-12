@@ -92,6 +92,10 @@ services:
     environment:
       - SA_PASSWORD=${SQL_SA_PASSWORD:?copy .env.example to .env}
       - ACCEPT_EULA=Y
+  seq:
+    # Log server for the structured logs (Serilog.Sinks.Seq); UI at http://localhost:5341.
+    # Filter one customer action across all services with:  CorrelationId = '<id>'
+    image: datalust/seq:2024.3
   rabbitmq:
     image: rabbitmq:3.13-management
     hostname: rabbitmq

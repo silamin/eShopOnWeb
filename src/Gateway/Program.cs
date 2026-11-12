@@ -21,17 +21,23 @@ var builder = WebApplication.CreateBuilder(args);
 // Serilog (krav 7): structured logs to the console, read with `docker compose logs`. Every event carries
 // Service and Host (the container, so the two Catalog instances can be told apart). Levels can be
 // changed without a rebuild, e.g. Serilog__MinimumLevel__Default=Debug in the environment.
-builder.Host.UseSerilog((ctx, lc) => lc
+builder.Host.UseSerilog((ctx, lc) =>
+{
+    lc
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
     .MinimumLevel.Override("Yarp", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("System.Net.Http.HttpClient", Serilog.Events.LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Service", "gateway")
     .Enrich.WithProperty("Host", Environment.MachineName)
     .WriteTo.Console(outputTemplate:
         "[{Timestamp:HH:mm:ss} {Level:u3}] {Service}@{Host} {SourceContext}: {Message:lj}{NewLine}{Exception}")
-    .ReadFrom.Configuration(ctx.Configuration));
+    .ReadFrom.Configuration(ctx.Configuration);
+    // Seq (local log server, compose service "seq"; UI http://localhost:5341) when SEQ_URL is set.
+    if (ctx.Configuration["SEQ_URL"] is { Length: > 0 } seqUrl) lc.WriteTo.Seq(seqUrl);
+});
 
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key is not configured (JWT_KEY in .env).");
@@ -72,6 +78,16 @@ builder.Services
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
+// Correlation id (krav 7): the gateway is where a customer action enters, so this is where its id is born
+// (or the caller's X-Correlation-Id is kept). It is logged, returned, and forwarded to the service.
+app.Use(async (ctx, next) =>
+{
+    var id = ctx.Request.Headers["X-Correlation-Id"].FirstOrDefault() is { Length: > 0 } h ? h : Guid.NewGuid().ToString("N");
+    ctx.Request.Headers["X-Correlation-Id"] = id;      // forwarded by the gateway (YARP copies request headers)
+    ctx.Response.Headers["X-Correlation-Id"] = id;
+    using (Serilog.Context.LogContext.PushProperty("CorrelationId", id))
+        await next(ctx);
+});
 // One log event per HTTP request: method, path, status code, elapsed ms.
 app.UseSerilogRequestLogging();
 

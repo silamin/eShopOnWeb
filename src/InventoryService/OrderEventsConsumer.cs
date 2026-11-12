@@ -33,7 +33,12 @@ public sealed class OrderEventsConsumer : BackgroundService
         Topology.Declare(_channel);
         _channel.BasicQos(0, 1, false);
         var consumer = new EventingBasicConsumer(_channel);
-        consumer.Received += (_, ea) => Handle(ea);
+        consumer.Received += (_, ea) =>
+        {
+            // The message's correlation id becomes this handler's: on every log line, and on what it publishes.
+            using (_log.BeginScope(new Dictionary<string, object> { [Correlation.LogProperty] = Correlation.FromMessage(ea.BasicProperties) }))
+                Handle(ea);
+        };
         _channel.BasicConsume(Queues.InventoryOrderEvents, autoAck: false, consumer);
         _log.LogInformation("Consuming {Queue}", Queues.InventoryOrderEvents);
         await Task.Delay(Timeout.Infinite, stoppingToken).ContinueWith(_ => { });

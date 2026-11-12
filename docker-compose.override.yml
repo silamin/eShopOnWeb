@@ -3,6 +3,7 @@ services:
  eshopwebmvc:
    environment:
      - ASPNETCORE_ENVIRONMENT=Docker
+     - SEQ_URL=http://seq:5341
      - ASPNETCORE_URLS=http://+:8080
      - CatalogService__BaseUrl=http://catalogservice:8080/
      # The monolith keeps its own two databases and still connects as sa (it creates and migrates them).
@@ -30,6 +31,7 @@ services:
  gateway:
    environment:
      - ASPNETCORE_ENVIRONMENT=Docker
+     - SEQ_URL=http://seq:5341
      - ASPNETCORE_URLS=http://+:8080
      - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
    ports:
@@ -37,6 +39,7 @@ services:
  catalogservice:
    environment:
      - ASPNETCORE_ENVIRONMENT=Docker
+     - SEQ_URL=http://seq:5341
      - ASPNETCORE_URLS=http://+:8080
      - ConnectionStrings__CatalogConnection=Server=sqlserver,1433;Database=eShop.CatalogServiceDb;User Id=catalog_svc;Password=${CATALOG_DB_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;Encrypt=false
      - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
@@ -48,6 +51,7 @@ services:
  catalogservice-2:
    environment:
      - ASPNETCORE_ENVIRONMENT=Docker
+     - SEQ_URL=http://seq:5341
      - ASPNETCORE_URLS=http://+:8080
      - ConnectionStrings__CatalogConnection=Server=sqlserver,1433;Database=eShop.CatalogServiceDb;User Id=catalog_svc;Password=${CATALOG_DB_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;Encrypt=false
      - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
@@ -60,6 +64,7 @@ services:
  inventoryservice:
    environment:
      - ASPNETCORE_ENVIRONMENT=Docker
+     - SEQ_URL=http://seq:5341
      - ASPNETCORE_URLS=http://+:8080
      - ConnectionStrings__InventoryConnection=Server=sqlserver,1433;Database=eShop.InventoryDb;User Id=inventory_svc;Password=${INVENTORY_DB_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;Encrypt=false
      - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
@@ -72,6 +77,7 @@ services:
  orderingservice:
    environment:
      - ASPNETCORE_ENVIRONMENT=Docker
+     - SEQ_URL=http://seq:5341
      - ASPNETCORE_URLS=http://+:8080
      - ConnectionStrings__OrderingConnection=Server=sqlserver,1433;Database=eShop.OrderingDb;User Id=ordering_svc;Password=${ORDERING_DB_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;Encrypt=false
      - Jwt__Key=${JWT_KEY:?copy .env.example to .env}
@@ -82,6 +88,7 @@ services:
  paymentservice:
    environment:
      - ASPNETCORE_ENVIRONMENT=Docker
+     - SEQ_URL=http://seq:5341
      - ASPNETCORE_URLS=http://+:8080
      - ConnectionStrings__PaymentConnection=Server=sqlserver,1433;Database=eShop.PaymentDb;User Id=payment_svc;Password=${PAYMENT_DB_PASSWORD:?copy .env.example to .env};TrustServerCertificate=true;Encrypt=false
      # Simulated payment: an order total above this is declined (PaymentFailed -> the order is cancelled and
@@ -106,6 +113,13 @@ services:
      - PAYMENT_DB_NAME=eShop.PaymentDb
      - PAYMENT_DB_USER=payment_svc
      - PAYMENT_DB_PASSWORD=${PAYMENT_DB_PASSWORD:?copy .env.example to .env}
+ seq:
+   environment:
+     - ACCEPT_EULA=Y
+     # Local demo only: no login on the log UI, and it is published on the loopback interface only.
+     - SEQ_FIRSTRUN_NOAUTHENTICATION=true
+   ports:
+     - "127.0.0.1:5341:80"
  rabbitmq:
    environment:
      # The image creates only this user (no guest) and this vhost; the user gets rights on that vhost only.
