@@ -10,7 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<PaymentDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("PaymentConnection")));
 builder.Services.AddScoped<PaymentDecider>();
-builder.Services.AddSingleton(_ => new EventPublisher(RabbitMqOptions.FromEnvironment()));
+builder.Services.AddSingleton(sp => new EventPublisher(RabbitMqOptions.FromEnvironment(),
+    m => sp.GetRequiredService<ILoggerFactory>().CreateLogger("EventPublisher").LogWarning("{Retry}", m)));
 builder.Services.AddHostedService<PaymentConsumer>();
 
 var app = builder.Build();

@@ -15,9 +15,11 @@ public sealed class EventPublisher : IDisposable
     private readonly IModel _channel;
     private readonly object _gate = new();
 
-    public EventPublisher(RabbitMqOptions options)
+    /// <param name="log">Optional: where "broker not ready" retries are written (a service's ILogger).</param>
+    public EventPublisher(RabbitMqOptions options, Action<string>? log = null)
     {
-        _connection = options.ToConnectionFactory().CreateConnection("eshop-publisher");
+        // Retry with backoff: the service may start before RabbitMQ accepts connections.
+        _connection = BrokerConnect.Open(options, "eshop-publisher", log ?? Console.WriteLine);
         _channel = _connection.CreateModel();
         Topology.Declare(_channel);
         _channel.ConfirmSelect();

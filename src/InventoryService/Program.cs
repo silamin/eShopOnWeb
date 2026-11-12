@@ -13,7 +13,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<InventoryDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("InventoryConnection")));
 builder.Services.AddScoped<ReservationHandler>();
-builder.Services.AddSingleton(_ => new Eshop.Messaging.EventPublisher(Eshop.Messaging.RabbitMqOptions.FromEnvironment()));
+builder.Services.AddSingleton(sp => new Eshop.Messaging.EventPublisher(Eshop.Messaging.RabbitMqOptions.FromEnvironment(),
+    m => sp.GetRequiredService<ILoggerFactory>().CreateLogger("EventPublisher").LogWarning("{Retry}", m)));
 builder.Services.AddHostedService<CatalogEventsConsumer>();
 builder.Services.AddHostedService<OrderEventsConsumer>();
 

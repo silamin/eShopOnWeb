@@ -32,7 +32,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // Events out (krav 5): CatalogItemCreated, so Inventory creates a stock line. Broker settings from the environment.
-builder.Services.AddSingleton(_ => new EventPublisher(RabbitMqOptions.FromEnvironment()));
+builder.Services.AddSingleton(sp => new EventPublisher(RabbitMqOptions.FromEnvironment(),
+    m => sp.GetRequiredService<ILoggerFactory>().CreateLogger("EventPublisher").LogWarning("{Retry}", m)));
 
 var app = builder.Build();
 

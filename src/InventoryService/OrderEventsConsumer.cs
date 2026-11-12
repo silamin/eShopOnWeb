@@ -28,15 +28,7 @@ public sealed class OrderEventsConsumer : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var options = RabbitMqOptions.FromEnvironment();
-        for (var attempt = 1; _connection is null; attempt++)
-        {
-            try { _connection = options.ToConnectionFactory().CreateConnection("inventory-orders"); }
-            catch (Exception ex) when (attempt < 30 && !stoppingToken.IsCancellationRequested)
-            {
-                _log.LogWarning("Broker not ready (attempt {Attempt}/30): {Message}", attempt, ex.Message);
-                await Task.Delay(2000, stoppingToken);
-            }
-        }
+        _connection = await BrokerConnect.OpenAsync(options, "inventory-orders", m => _log.LogWarning("{Retry}", m), stoppingToken);
         _channel = _connection.CreateModel();
         Topology.Declare(_channel);
         _channel.BasicQos(0, 1, false);

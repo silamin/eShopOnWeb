@@ -96,7 +96,8 @@ services:
     image: rabbitmq:3.13-management
     hostname: rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # check_port_connectivity, not ping: ping answers before the AMQP listener accepts connections.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
       timeout: 10s
       retries: 12

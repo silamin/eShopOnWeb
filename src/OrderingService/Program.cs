@@ -14,7 +14,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<OrderingDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("OrderingConnection")));
 builder.Services.AddScoped<OrderSaga>();
-builder.Services.AddSingleton(_ => new EventPublisher(RabbitMqOptions.FromEnvironment()));
+builder.Services.AddSingleton(sp => new EventPublisher(RabbitMqOptions.FromEnvironment(),
+    m => sp.GetRequiredService<ILoggerFactory>().CreateLogger("EventPublisher").LogWarning("{Retry}", m)));
 builder.Services.AddHostedService<SagaConsumer>();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured.");
